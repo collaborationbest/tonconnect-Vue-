@@ -3,4 +3,19 @@ import './assets/main.css'
 import { createApp } from 'vue'
 import App from './App.vue'
 
-createApp(App).mount('#app')
+import {
+    createTonConnectUIProvider,
+    TonConnectUIContext,
+    TonConnectUIOptionsContext
+} from 'ton-ui-vue';
+
+const { tonConnectUI, setOptions } = createTonConnectUIProvider({
+    manifestUrl: 'https://tonconnect-vue.vercel.app/tonconnect-mainfest.json'
+});
+
+const app = createApp(App);
+
+app.provide(TonConnectUIContext, tonConnectUI);
+app.provide(TonConnectUIOptionsContext, setOptions);
+
+app.mount('#app');
