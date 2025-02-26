@@ -36,7 +36,7 @@ export default {
     onMounted(() => {
       if (typeof window !== "undefined" && window.localStorage) {
         tonConnectUI = new TonConnectUI({
-          manifestUrl: "https://ton-transaction-svelte.vercel.app/tonconnect-manifest.json",
+          manifestUrl: "https://tonconnect-vue.vercel.app/tonconnect-manifest.json",
           buttonRootId: "tonwalletbtn",
         });
         
