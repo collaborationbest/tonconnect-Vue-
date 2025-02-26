@@ -1,32 +1,146 @@
 <template>
-  <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
-    <div v-if="address">Connected Address: {{ address }}</div>
-    <TonConnectButton />
-
-    <div v-if="!sending" style="margin-top: 10px; display: flex; justify-content: center; align-items: center;">
-      <button @click="sendTransaction"
-        style="border: none; outline: none; border-radius: 10px; padding: 10px 20px; background: blue; color: white;">Send
-        Transaction</button>
+  <div class="container flex-col">
+    <div class="flex justify-center">
+      <button id="tonwalletbtn" style="border: none; background: none;"></button>
     </div>
-    <div v-if="error">{{ error.message }}</div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <input
+          type="text"
+          class="ton-input"
+          placeholder="input amount"
+          v-model="amount"
+        />
+        <input
+          type="text"
+          class="ton-input"
+          placeholder="input address"
+          v-model="address"
+        />
+        <button class="send-btn" @click="sendPayment">Send</button>
+    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { TonConnectButton } from 'ton-ui-vue';
-import { useTonAddress, useSendTransaction } from 'ton-ui-vue';
+<script>
+import { ref, onMounted } from "vue";
+import { TonConnectUI, THEME } from "@tonconnect/ui";
 
-const address = useTonAddress();
-const { sendTransaction, addMessage, sending, error } = useSendTransaction();
+export default {
+  setup() {
+    const amount = ref(0);
+    const address = ref("");
+    const myJettonAddress = ref("");
+    const myAddress = ref("");
+    let tonConnectUI;
 
-// Add a message for a wallet address
-addMessage(
-  "0:b2a1ecf5545e076cd36ae516ea7ebdf32aea008caa2b84af9866becb208895ad",
-  "100000000"
-);
-// Add another message for a contract address
-addMessage(
-  "0:a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef",
-  "500000000"
-);
+    onMounted(() => {
+      if (typeof window !== "undefined" && window.localStorage) {
+        tonConnectUI = new TonConnectUI({
+          manifestUrl: "https://ton-transaction-svelte.vercel.app/tonconnect-manifest.json",
+          buttonRootId: "tonwalletbtn",
+        });
+        
+        const unsubscribe = tonConnectUI.onSingleWalletModalStateChange((state) => {
+          alert(`modal state ${state}`);
+        });
+
+        // Call `unsubscribe` when you want to stop listening to the state changes
+        unsubscribe();
+
+        tonConnectUI.uiOptions = {
+          language: "en",
+          uiPreferences: {
+            theme: THEME.LIGHT,
+          },
+        };
+      } else {
+        console.error("localStorage is unavailable, TonConnect cannot be initialized.");
+      }
+    });
+
+    const sendPayment = async () => {
+      if (amount.value > 0 && address.value !== "") {
+        const tonAddress = tonConnectUI.account.address;
+
+        const jettonAddressResponse = await fetch("/api/getJettonAddress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tonAddress,
+          }),
+        });
+        const result = await jettonAddressResponse.json();
+        myAddress.value = result.userAddress;
+        myJettonAddress.value = result.notcoin;
+
+        const jettonWalletAddress = myJettonAddress.value;
+        const toAddress = address.value;
+        const responseAddress = myAddress.value;
+        const jettonAmount = Number(amount.value * Math.pow(10, 9));
+
+        const response = await fetch("/api/createTransferBody", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jettonWalletAddress,
+            toAddress,
+            responseAddress,
+            jettonAmount,
+          }),
+        });
+        const { payload } = await response.json();
+
+        const transaction = {
+          validUntil: Math.floor(Date.now() / 1000) + 360,
+          messages: [
+            {
+              address: jettonWalletAddress,
+              amount: "100000000",
+              payload: payload,
+            },
+          ],
+        };
+
+        try {
+          const result = await tonConnectUI.sendTransaction(transaction);
+          console.log("Transaction sent:", result);
+          const bocHash = result.boc;
+        } catch (error) {
+          console.error("Transaction failed:", error);
+        }
+      }
+    };
+
+    return {
+      amount,
+      address,
+      myJettonAddress,
+      myAddress,
+      sendPayment,
+    };
+  },
+};
 </script>
+
+<style>
+.container {
+  max-width: 250px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+}
+.ton-input {
+  padding: 10px;
+  border-radius: 10px;
+  width: 100%;
+}
+.send-btn {
+  padding: 10px;
+  width: 100%;
+  background-color: blue;
+  color: white;
+  border-radius: 10px;
+}
+</style>
