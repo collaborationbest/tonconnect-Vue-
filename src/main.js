@@ -10,7 +10,7 @@ import {
 } from 'ton-ui-vue';
 
 const { tonConnectUI, setOptions } = createTonConnectUIProvider({
-    manifestUrl: 'https://tonconnect-vue.vercel.app/tonconnect-mainfest.json'
+    manifestUrl: 'https://tonconnect-vue.vercel.app/tonconnect-manifest.json'
 });
 
 const app = createApp(App);
